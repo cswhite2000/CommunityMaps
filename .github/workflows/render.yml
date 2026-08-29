@@ -1,0 +1,35 @@
+name: Render maps
+
+on:
+  push:
+    branches: ["master"]
+  workflow_dispatch:
+
+jobs:
+  render:
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: Download mciso
+        run: |
+          curl -fsSL -o mciso https://github.com/OvercastCommunity/mciso/releases/download/latest/mciso-linux-x86_64
+          chmod +x mciso
+      - name: Render
+        env:
+          BEFORE: ${{ github.event.before }}
+        run: |
+          since=""
+          if [ "${{ github.event_name }}" = "push" ] && \
+             [ "$BEFORE" != "0000000000000000000000000000000000000000" ] && \
+             git cat-file -e "$BEFORE" 2>/dev/null; then
+            since="$BEFORE"
+          fi
+          ./mciso -i . -o out --smooth ${since:+-s "$since"}
+      - uses: actions/upload-artifact@v4
+        with:
+          name: map-images
+          path: out
+          if-no-files-found: warn
