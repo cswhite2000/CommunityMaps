@@ -5,9 +5,15 @@ on:
     branches: ["master"]
   workflow_dispatch:
 
+env:
+  OCI_REGION: ca-montreal-1
+
 jobs:
   render:
     runs-on: ubuntu-latest
+    env:
+      AWS_ACCESS_KEY_ID: ${{ secrets.OCI_ACCESS_KEY_ID }}
+      AWS_SECRET_ACCESS_KEY: ${{ secrets.OCI_SECRET_ACCESS_KEY }}
 
     steps:
       - uses: actions/checkout@v4
@@ -16,7 +22,8 @@ jobs:
       - name: Download mciso
         run: |
           curl -fsSL -o mciso https://github.com/OvercastCommunity/mciso/releases/download/latest/mciso-linux-x86_64
-          chmod +x mciso
+          curl -fsSL -o mciso-upload https://github.com/OvercastCommunity/mciso/releases/download/latest/mciso-upload-linux-x86_64
+          chmod +x mciso mciso-upload
       - name: Render
         env:
           BEFORE: ${{ github.event.before }}
@@ -28,6 +35,14 @@ jobs:
             since="$BEFORE"
           fi
           ./mciso -i . -o out --smooth ${since:+-s "$since"}
+      - name: Upload to OCI
+        if: env.AWS_ACCESS_KEY_ID != ''
+        run: |
+          if [ -n "$(ls out/*.png 2>/dev/null)" ]; then
+            ./mciso-upload -i out --region "$OCI_REGION"
+          else
+            echo "No images to upload"
+          fi
       - uses: actions/upload-artifact@v7
         with:
           name: map-images
